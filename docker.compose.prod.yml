@@ -484,7 +484,20 @@ services:
         max-size: "20m"
         max-file: "5"
 
+#CERTBOT
+  certbot:
+    image: certbot/certbot
 
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+
+    entrypoint: >
+      sh -c "trap exit TERM;
+      while :; do
+        certbot renew;
+        sleep 12h;
+      done"
 
   ###########################################################
   # React Frontend (Vite + Nginx)

@@ -484,20 +484,51 @@ services:
         max-size: "20m"
         max-file: "5"
 
-#CERTBOT
+  ###########################################################
+  # Certbot Auto Renewal
+  ###########################################################
+
   certbot:
     image: certbot/certbot
+
+    restart: unless-stopped
 
     volumes:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
 
-    entrypoint: >
-      sh -c "trap exit TERM;
-      while :; do
-        certbot renew;
-        sleep 12h;
-      done"
+    command: >
+      sh -c "
+        trap exit TERM;
+        while :; do
+          certbot renew --webroot -w /var/www/certbot;
+          sleep 12h;
+        done
+      "
+
+    networks:
+      - backend
+
+
+
+  ###########################################################
+  # Initial Certificate Request
+  ###########################################################
+
+  certbot-init:
+    image: certbot/certbot
+
+    profiles:
+      - init
+
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+
+    entrypoint: certbot
+
+    networks:
+      - backend
 
   ###########################################################
   # React Frontend (Vite + Nginx)

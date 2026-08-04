@@ -573,45 +573,69 @@ services:
 
 ###########################################################
 #RADIUS SERVER
+############################################################
 
-radius:
-  build:
-    context: ../DJANGO_BILLING/freeradius
-    dockerfile: Dockerfile
+  radius:
+    build:
+      context: ../DJANGO_BILLING/freeradius
+      dockerfile: Dockerfile
 
-  container_name: freeradius
+    container_name: freeradius
 
-  restart: unless-stopped
+    restart: unless-stopped
 
-  depends_on:
-    mysql_main:
-      condition: service_healthy
+    depends_on:
+      mysql_main:
+        condition: service_healthy
 
-  env_file:
-    - .env
+    env_file:
+      - .env
 
-  environment:
-    TZ: Africa/Nairobi
-    RADIUS_DB_HOST: ${MYSQL_HOST}
-    RADIUS_DB_PORT: ${MYSQL_PORT}
-    RADIUS_DB_NAME: ${MYSQL_DATABASE}
-    RADIUS_DB_USER: ${MYSQL_USER}
-    RADIUS_DB_PASSWORD: ${MYSQL_PASSWORD}
+    environment:
+      TZ: Africa/Nairobi
+
+      RADIUS_DB_HOST: ${MYSQL_HOST}
+      RADIUS_DB_PORT: ${MYSQL_PORT}
+      RADIUS_DB_NAME: ${MYSQL_DATABASE}
+      RADIUS_DB_USER: ${MYSQL_USER}
+      RADIUS_DB_PASSWORD: ${MYSQL_PASSWORD}
 
     
+      
 
-  ports:
-    - "1812:1812/udp"
-    - "1813:1813/udp"
+    ports:
+      - "1812:1812/udp"
+      - "1813:1813/udp"
 
-  networks:
-    - backend
+    networks:
+      - backend
 
-  healthcheck:
-    test: ["CMD-SHELL", "pgrep freeradius >/dev/null || exit 1"]
-    interval: 30s
-    timeout: 10s
-    retries: 5
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep freeradius >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+
+    # -------------------------
+    # Resource Constraints
+    # -------------------------
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          memory: 128M
+
+    # -------------------------
+    # Log Rotation (Prevents Full Disk)
+    # -------------------------
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 ###########################################################
 # Volumes

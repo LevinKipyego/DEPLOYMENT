@@ -24,12 +24,12 @@ services:
 
     command: >
       postgres
-      -c shared_buffers=128MB
-      -c effective_cache_size=384MB
-      -c maintenance_work_mem=64MB
-      -c work_mem=4MB
-      -c max_connections=200
-      -c wal_buffers=16MB
+      -c shared_buffers=96MB
+      -c effective_cache_size=256MB
+      -c maintenance_work_mem=32MB
+      -c work_mem=2MB
+      -c max_connections=60
+      -c wal_buffers=8MB
       -c checkpoint_completion_target=0.9
 
     volumes:
@@ -40,8 +40,9 @@ services:
     networks:
       - backend
 
-    mem_limit: 512m
-    cpus: 0.70
+    mem_limit: 384m
+    mem_reservation: 256m
+    cpus: 0.60
 
     stop_signal: SIGINT
     stop_grace_period: 90s
@@ -63,8 +64,8 @@ services:
     logging:
       driver: "json-file"
       options:
-        max-size: "20m"
-        max-file: "5"
+        max-size: "10m"
+        max-file: "3"
 
 
 
@@ -91,16 +92,19 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       TZ: UTC
 
-    mem_limit: 1280m
+    mem_limit: 768m
     mem_reservation: 512m
-    cpus: 1.50
+    cpus: 1.00
 
     command: >
-      --max_connections=200
-      --innodb-buffer-pool-size=512M
-      --max_allowed_packet=256M
-      --innodb-log-file-size=64M
+      --max_connections=80
+      --innodb-buffer-pool-size=384M
+      --max_allowed_packet=64M
+      --innodb-redo-log-capacity=128M
       --innodb-flush-method=O_DIRECT
+      --tmp_table_size=32M
+      --max_heap_table_size=32M
+      --thread_cache_size=16
 
     volumes:
       - mysql_data:/var/lib/mysql
@@ -135,8 +139,8 @@ services:
     logging:
       driver: "json-file"
       options:
-        max-size: "20m"
-        max-file: "5"
+        max-size: "10m"
+        max-file: "3"
 
 
 
@@ -157,8 +161,8 @@ services:
       redis-server
       --appendonly yes
       --appendfsync everysec
-      --maxmemory 128mb
-      --maxmemory-policy allkeys-lru
+      --maxmemory 96mb
+      --maxmemory-policy noeviction
 
     volumes:
       - redis_data:/data
@@ -166,8 +170,9 @@ services:
     networks:
       - backend
 
-    mem_limit: 160m
-    cpus: 0.25
+    mem_limit: 128m
+    mem_reservation: 64m
+    cpus: 0.20
 
     security_opt:
       - no-new-privileges:true
@@ -184,8 +189,8 @@ services:
     logging:
       driver: "json-file"
       options:
-        max-size: "20m"
-        max-file: "5"
+        max-size: "10m"
+        max-file: "3"
 
 
 
@@ -255,8 +260,9 @@ services:
     networks:
       - backend
 
-    mem_limit: 768m
-    cpus: 1.0
+    mem_limit: 576m
+    mem_reservation: 320m
+    cpus: 0.90
 
     tmpfs:
       - /tmp
@@ -273,16 +279,16 @@ services:
           "CMD-SHELL",
           "python -c \"import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/ready/').getcode() == 200 else 1)\""
         ]
-      interval: 15s
+      interval: 20s
       timeout: 5s
       retries: 5
-      start_period: 40s
+      start_period: 60s
 
     logging:
       driver: "json-file"
       options:
-        max-size: "20m"
-        max-file: "5"
+        max-size: "10m"
+        max-file: "3"
 
     volumes:
       - static_volume:/code/staticfiles
@@ -325,16 +331,19 @@ services:
     command: >
       celery -A config worker
       --loglevel=info
+      --pool=prefork
       --concurrency=1
       --prefetch-multiplier=1
-      --max-tasks-per-child=500
+      --max-tasks-per-child=100
+      --max-memory-per-child=280000
       --without-gossip
       --without-mingle
 
     networks:
       - backend
 
-    mem_limit: 512m
+    mem_limit: 448m
+    mem_reservation: 192m
     cpus: 0.50
 
     stop_grace_period: 60s
@@ -343,7 +352,7 @@ services:
       - no-new-privileges:true
 
     tmpfs:
-      - /tmp
+      - /tmp:size=64m,mode=1777
 
     healthcheck:
       test:
@@ -363,8 +372,8 @@ services:
     logging:
       driver: "json-file"
       options:
-        max-size: "20m"
-        max-file: "5"
+        max-size: "10m"
+        max-file: "3"
 
 
 
@@ -404,17 +413,21 @@ services:
     command: >
       celery -A config beat
       --loglevel=info
-      --pidfile=
-      --schedule=/tmp/celerybeat-schedule
+      --pidfile=/tmp/celerybeat.pid
+      --schedule=/var/lib/celery/celerybeat-schedule
 
     networks:
       - backend
 
     tmpfs:
-      - /tmp
+      - /tmp:size=16m,mode=1777
 
-    mem_limit: 256m
-    cpus: 0.25
+    volumes:
+      - celerybeat_data:/var/lib/celery
+
+    mem_limit: 128m
+    mem_reservation: 64m
+    cpus: 0.15
 
     stop_grace_period: 30s
 
@@ -424,10 +437,8 @@ services:
     healthcheck:
       test:
         [
-          "CMD",
-          "python",
-          "-c",
-          "import os; exit(0 if os.path.exists('/tmp/celerybeat-schedule') else 1)"
+          "CMD-SHELL",
+          "test -s /tmp/celerybeat.pid && kill -0 $(cat /tmp/celerybeat.pid)"
         ]
       interval: 60s
       timeout: 10s
@@ -437,8 +448,8 @@ services:
     logging:
       driver: "json-file"
       options:
-        max-size: "20m"
-        max-file: "5"
+        max-size: "10m"
+        max-file: "3"
 
 
 
@@ -466,8 +477,9 @@ services:
       - "443:443"
       
 
-    mem_limit: 64m
-    cpus: 0.25
+    mem_limit: 96m
+    mem_reservation: 32m
+    cpus: 0.20
 
     volumes:
       - static_volume:/static:ro
@@ -481,9 +493,10 @@ services:
       - backend
 
     logging:
+      driver: "json-file"
       options:
-        max-size: "20m"
-        max-file: "5"
+        max-size: "10m"
+        max-file: "3"
 
   
 
@@ -537,7 +550,8 @@ services:
       - backend
 
     mem_limit: 128m
-    cpus: 0.25
+    mem_reservation: 32m
+    cpus: 0.20
 
     security_opt:
       - no-new-privileges:true
@@ -545,9 +559,9 @@ services:
     read_only: true
 
     tmpfs:
-      - /var/cache/nginx
-      - /var/run
-      - /tmp
+      - /var/cache/nginx:size=16m,mode=1777
+      - /var/run:size=8m,mode=1777
+      - /tmp:size=16m,mode=1777
 
     healthcheck:
       test:
@@ -567,8 +581,8 @@ services:
     logging:
       driver: "json-file"
       options:
-        max-size: "20m"
-        max-file: "5"
+        max-size: "10m"
+        max-file: "3"
 
 
 ###########################################################
@@ -583,6 +597,8 @@ services:
     container_name: freeradius
 
     restart: unless-stopped
+
+    init: true
 
     depends_on:
       mysql_main:
@@ -610,23 +626,22 @@ services:
     networks:
       - backend
 
+    mem_limit: 320m
+    mem_reservation: 128m
+    cpus: 0.50
+
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+
+    security_opt:
+      - no-new-privileges:true
+
     healthcheck:
       test: ["CMD-SHELL", "pgrep freeradius >/dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
 
-
-    # -------------------------
-    # Resource Constraints
-    # -------------------------
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-        reservations:
-          memory: 128M
 
     # -------------------------
     # Log Rotation (Prevents Full Disk)
@@ -652,6 +667,8 @@ volumes:
   static_volume:
 
   media_volume:
+
+  celerybeat_data:
 
 
 

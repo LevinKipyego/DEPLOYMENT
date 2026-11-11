@@ -335,7 +335,6 @@ services:
       --concurrency=4
       --prefetch-multiplier=4
       --max-tasks-per-child=100
-    
       --without-gossip
       --without-mingle
 
@@ -410,11 +409,13 @@ services:
       redis:
         condition: service_healthy
 
+    # FIXED: Added --scheduler parameter explicitly to prevent fallback issues
     command: >
       celery -A config beat
       --loglevel=info
       --pidfile=/tmp/celerybeat.pid
       --schedule=/var/lib/celery/celerybeat-schedule
+      --scheduler=celery.beat:PersistentScheduler
 
     networks:
       - backend

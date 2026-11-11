@@ -332,10 +332,10 @@ services:
       celery -A config worker
       --loglevel=info
       --pool=prefork
-      --concurrency=1
-      --prefetch-multiplier=1
+      --concurrency=4
+      --prefetch-multiplier=4
       --max-tasks-per-child=100
-      --max-memory-per-child=280000
+    
       --without-gossip
       --without-mingle
 

@@ -305,6 +305,7 @@ services:
       dockerfile: docker/django/Dockerfile
 
     container_name: celery_worker
+    entrypoint: ["/code/docker/django/celery_worker_entrypoint.sh"]
 
     restart: unless-stopped
 
@@ -384,6 +385,7 @@ services:
     build:
       context: ../DJANGO_BILLING
       dockerfile: docker/django/Dockerfile
+      entrypoint: ["/code/docker/django/celery_beat_entrypoint.sh"]
 
     container_name: celery_beat
 

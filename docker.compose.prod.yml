@@ -385,10 +385,12 @@ services:
     build:
       context: ../DJANGO_BILLING
       dockerfile: docker/django/Dockerfile
-      entrypoint: ["/code/docker/django/celery_beat_entrypoint.sh"]
+      
 
     container_name: celery_beat
 
+    entrypoint: ["/code/docker/django/celery_beat_entrypoint.sh"]
+    
     restart: unless-stopped
 
     init: true
